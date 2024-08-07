@@ -7,17 +7,10 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-IN_PATH = 'D:/py_projects/Financial_Inclusion_Africa/data/'
-TARGET = 'bank_account'
-NUM_FEAS = ['year', 'household_size', 'age_of_respondent']
-# CAT_FEAS = ['country', 'uniqueid', 'location_type', 'cellphone_access',
-#             'gender_of_respondent', 'relationship_with_head', 'marital_status',
-#             'education_level', 'job_type']
-CAT_FEAS = ['country', 'location_type', 'cellphone_access',
-            'gender_of_respondent', 'relationship_with_head', 'marital_status',
-            'education_level', 'job_type']
+from constants import IN_PATH, TARGET, NUM_FEAS, CAT_FEAS
+from preprocessor import Preprocessor
 
-is_local_experiment = True
+is_local_experiment = False
 df_train = pd.read_csv(os.path.join(IN_PATH, 'Train.csv'))
 df_test = pd.read_csv(os.path.join(IN_PATH, 'Test.csv'))
 df_train[TARGET] = df_train[TARGET].map({'Yes': 1, 'No': 0})
@@ -26,20 +19,21 @@ df_submission = pd.read_csv(os.path.join(IN_PATH, 'SampleSubmission.csv'))
 # print(len(set(df_train['uniqueid']).intersection(df_test['uniqueid'])))
 X_train_raw, y_train_raw = df_train[NUM_FEAS + CAT_FEAS], df_train[TARGET]
 print(f'df_train.shape, df_test.shape: {df_train.shape, df_test.shape}')
+# df_train.shape, df_test.shape: ((23524, 13), (10086, 12))
+
+print(f'y_train_raw.value_counts(): {y_train_raw.value_counts()}')
+# 0    20212
+# 1     3312
 
 if is_local_experiment:
     X_train, X_val, y_train, y_val = train_test_split(X_train_raw, y_train_raw, stratify=y_train_raw,
                                                       test_size=0.3, random_state=42)
 
-    enc = OneHotEncoder(handle_unknown='ignore')
-    X_processed_train = pd.DataFrame(np.hstack((X_train[NUM_FEAS], enc.fit_transform(X_train[CAT_FEAS]).todense())),
-                                     columns=NUM_FEAS + list(enc.get_feature_names_out()))
-    X_processed_val = pd.DataFrame(np.hstack((X_val[NUM_FEAS], enc.transform(X_val[CAT_FEAS]).todense())),
-                                   columns=NUM_FEAS + list(enc.get_feature_names_out()))
-    print(X_processed_train.shape, X_processed_val.shape)
+    prep = Preprocessor(NUM_FEAS, CAT_FEAS)
+    X_processed_train = prep.preprocess(X_train)
+    X_processed_val = prep.preprocess(X_val)
 
-    # TODO: std
-    model = LogisticRegression(random_state=0)
+    model = LogisticRegression(random_state=0, C=np.inf)
     model.fit(X_processed_train, y_train)
     pred_train = model.predict(X_processed_train)
     pred_val = model.predict(X_processed_val)
@@ -48,15 +42,17 @@ if is_local_experiment:
     mae_val = mean_absolute_error(y_val, pred_val)
     print(f'mae_train: {round(mae_train, 4)}')
     print(f'mae_val: {round(mae_val, 4)}')
+    # mae_train: 0.11
+    # mae_val: 0.11
 else:
     # train a model on all the training data
     enc = OneHotEncoder(handle_unknown='ignore')
     enc.fit_transform(X_train_raw[CAT_FEAS])
     fea_names = NUM_FEAS + list(enc.get_feature_names_out())
-    X_processed_train = pd.DataFrame(np.hstack((X_train_raw[NUM_FEAS], enc.transform(X_train_raw[CAT_FEAS]).todense())),
-                                     columns=fea_names)
-    X_processed_test = pd.DataFrame(np.hstack((df_test[NUM_FEAS], enc.fit_transform(df_test[CAT_FEAS]).todense())),
-                                    columns=fea_names)
+
+    prep = Preprocessor(NUM_FEAS, CAT_FEAS)
+    X_processed_train = prep.preprocess(X_train_raw)
+    X_processed_test = prep.preprocess(df_test)
 
     model = LogisticRegression(random_state=0)
     model.fit(X_processed_train, y_train_raw)
@@ -70,4 +66,4 @@ else:
                                    })
     df_result = pd.concat([df_result_train, df_result_test], ignore_index=True)
     df_my_submission = df_submission[['unique_id']].merge(df_result, on='unique_id')
-    df_my_submission.to_csv('./logistic_submission.csv', index=False)
+    # df_my_submission.to_csv('./logistic_submission.csv', index=False)
