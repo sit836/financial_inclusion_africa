@@ -27,8 +27,6 @@ X_train_raw, y_train_raw = df_train[NUM_FEAS + CAT_FEAS], df_train[TARGET]
 print(f'df_train.shape, df_test.shape: {df_train.shape, df_test.shape}')
 # df_train.shape, df_test.shape: ((23524, 13), (10086, 12))
 
-# TODO: ordinal cat variable
-
 if is_local_experiment:
     X_train, X_val, y_train, y_val = train_test_split(X_train_raw, y_train_raw, stratify=y_train_raw,
                                                       test_size=0.3, random_state=123)
@@ -58,10 +56,11 @@ else:
     enc = OneHotEncoder(handle_unknown='ignore')
     enc.fit_transform(X_train_raw[CAT_FEAS])
     fea_names = NUM_FEAS + list(enc.get_feature_names_out())
+    X_test = df_test[NUM_FEAS + CAT_FEAS]
 
     prep = Preprocessor(NUM_FEAS, CAT_FEAS)
     X_processed_train = prep.preprocess(X_train_raw)
-    X_processed_test = prep.preprocess(df_test)
+    X_processed_test = prep.preprocess(X_test)
 
     model = RandomForestClassifier(random_state=0, max_depth=8)
     model.fit(X_processed_train, y_train_raw)

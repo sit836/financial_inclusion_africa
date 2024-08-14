@@ -29,7 +29,18 @@ class Preprocessor:
             {'Kenya': 37.91, 'Rwanda': 29.87, 'Tanzania': 34.89, 'Uganda': 32.29})
         return X
 
+    def _order_enc(self, X: pd.DataFrame) -> pd.DataFrame:
+        X['education_level_num'] = X['education_level'].map({'Other/Dont know/RTA': -1,
+                                                             'No formal education': 0,
+                                                             'Primary education': 1,
+                                                             'Secondary education': 2,
+                                                             'Vocational/Specialised training': 3,
+                                                             'Tertiary education': 4,
+                                                             })
+        return X
+
     def preprocess(self, X: pd.DataFrame) -> pd.DataFrame:
         X_processed = X
+        X_processed = self._order_enc(X_processed)
         X_processed = self._enc_cat_features(X_processed)
         return X_processed
